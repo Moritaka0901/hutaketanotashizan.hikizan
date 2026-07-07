@@ -1,0 +1,1902 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ワクワク！２けたの たし算・ひき算</title>
+    <!-- Tailwind CSS for modern responsive styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts for child-friendly design -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru:wght@400;500;700&family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tone.js for web audio sound effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        body {
+            font-family: 'Zen Maru Gothic', 'Kiwi Maru', sans-serif;
+            background-color: #f0fdf4; /* 優しい薄緑 */
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .pop-button {
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .pop-button:active {
+            transform: scale(0.92);
+        }
+        /* 筆算のグリッドレイアウト */
+        .hissan-grid {
+            display: grid;
+            grid-template-columns: 1.8rem 2.0rem 2.8rem 2.8rem 3.2rem 1.0rem 3.0rem;
+            grid-template-rows: 3.5rem 4rem 4rem 1.2rem 4rem;
+            gap: 6px;
+            align-items: center;
+            justify-items: center;
+            font-size: 2rem;
+            font-weight: 900;
+        }
+        /* 明示的なグリッドの行と列の絶対配置用のクラス */
+        .gr-1 { grid-row: 1; }
+        .gr-2 { grid-row: 2; }
+        .gr-3 { grid-row: 3; }
+        .gr-4 { grid-row: 4; }
+        .gr-5 { grid-row: 5; }
+        .gr-1-3 { grid-row: 1 / span 3; }
+
+        .gc-1 { grid-column: 1; }
+        .gc-2 { grid-column: 2; }
+        .gc-3 { grid-column: 3; }
+        .gc-4 { grid-column: 4; }
+        .gc-5 { grid-column: 5; }
+        .gc-6 { grid-column: 6; }
+        .gc-7 { grid-column: 7; }
+        .gc-3-4 { grid-column: 3 / span 2; }
+        .gc-4-7 { grid-column: 4 / span 4; }
+        .gc-1-7 { grid-column: 1 / span 7; }
+
+        /* ノートの補助線 */
+        .notebook-line {
+            width: 100%;
+            height: 4px;
+            background-color: #475569;
+            border-radius: 2px;
+        }
+        /* 紙吹雪 of Celebration */
+        #confetti-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 50;
+        }
+        ruby {
+            ruby-position: over;
+        }
+        rt {
+            font-size: 0.55em;
+            color: #4b5563;
+            letter-spacing: 0.05em;
+            font-weight: bold;
+        }
+        /* 斜線(取り消し線)アニメーション */
+        .strike-through {
+            position: relative;
+        }
+        .strike-through::after {
+            content: "";
+            position: absolute;
+            left: 5%;
+            top: 45%;
+            width: 90%;
+            height: 4px;
+            background-color: #ef4444;
+            transform: rotate(-30deg);
+            border-radius: 2px;
+        }
+        /* おはじき合体時のはじけるアニメーション */
+        @keyframes popOut {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.4); filter: brightness(1.5); }
+            100% { transform: scale(0); opacity: 0; }
+        }
+        .pop-out-animation {
+            animation: popOut 0.5s ease-out forwards;
+        }
+        /* 入力中のアクティブなハコをポワンとやさしく点滅させるアニメーション（松プラン用） */
+        @keyframes focusPulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0px rgba(168, 85, 247, 0.4); }
+            50% { transform: scale(1.05); box-shadow: 0 0 12px 3px rgba(168, 85, 247, 0.25); }
+        }
+        .active-focus-pulse {
+            animation: focusPulse 1.6s infinite ease-in-out;
+            border-style: solid !important;
+            border-width: 2.5px !important;
+        }
+        /* クリック可能な10のまとまりのポワンと点滅するガイド */
+        @keyframes borderPulse {
+            0%, 100% { border-color: #a855f7; box-shadow: 0 0 0 0px rgba(168, 85, 247, 0.5); }
+            50% { border-color: #d8b4fe; box-shadow: 0 0 8px 3px rgba(168, 85, 247, 0.4); }
+        }
+        .tile-borrow-active {
+            animation: borderPulse 1.5s infinite ease-in-out;
+            border-width: 2px !important;
+        }
+
+        /* 【新設・松プラン】おはじき（1のばら）を確実に「横1段最大5個」で折り返していくグリッド配置（おはじきケース風） */
+        .dot-grid-5 {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 0.35rem;
+            justify-content: center;
+            align-items: center;
+            padding: 0.25rem;
+            width: 100%;
+        }
+
+        /* 【新設・松プラン】10のまとまり欄を確実に「横1段最大5個」で改行していくグリッド配置（5列グリッド） */
+        .tens-grid-5 {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 0.5rem;
+            justify-items: center;
+            align-items: start;
+            width: 100%;
+        }
+
+        /* がっちゃんこボタンのふわふわ点滅 */
+        @keyframes pulseGatchanko {
+            0%, 100% { transform: scale(1); box-shadow: 0 4px 6px -1px rgba(245, 158, 11, 0.4); }
+            50% { transform: scale(1.04); box-shadow: 0 10px 15px -3px rgba(245, 158, 11, 0.6); }
+        }
+        .gatchanko-active {
+            animation: pulseGatchanko 1.4s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-between p-2 sm:p-4 overflow-x-hidden relative">
+
+    <!-- Confetti Canvas for success celebration -->
+    <canvas id="confetti-canvas"></canvas>
+
+    <!-- App Container - 最大幅を1100pxに拡張 -->
+    <div class="w-full max-w-[1100px] bg-white rounded-3xl shadow-2xl border-4 border-emerald-400 p-3 sm:p-6 flex-1 flex flex-col justify-between z-10 my-1">
+        
+        <!-- Header Panel -->
+        <header class="flex justify-between items-center pb-2 border-b-2 border-dashed border-emerald-200">
+            <div class="flex items-center gap-2">
+                <span class="text-3xl animate-bounce">🎒</span>
+                <h1 class="text-lg sm:text-2xl font-black text-emerald-700 tracking-tight">
+                    <ruby>２桁<rt>ふたけた</rt></ruby>の <ruby>計算<rt>けいさん</rt></ruby>ドリル
+                </h1>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <!-- Sound Toggle -->
+                <button id="sound-btn" onclick="toggleSound()" class="pop-button bg-amber-100 hover:bg-amber-200 text-amber-700 p-2 rounded-full w-10 h-10 flex items-center justify-center border-2 border-amber-300 shadow-sm" title="おとON/OFF">
+                    <i id="sound-icon" class="fas fa-volume-up text-lg"></i>
+                </button>
+                <!-- Settings Button -->
+                <button id="settings-toggle-btn" onclick="showSettings()" class="pop-button bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-3 py-1.5 rounded-full font-bold border-2 border-emerald-300 text-xs sm:text-sm shadow-sm">
+                    <i class="fas fa-cog mr-1"></i>せってい
+                </button>
+            </div>
+        </header>
+
+        <!-- ================= SETTINGS SCREEN ================= -->
+        <div id="settings-screen" class="flex-1 flex flex-col justify-center items-center py-4 space-y-4">
+            <h2 class="text-xl sm:text-2xl font-black text-center text-emerald-800 mb-2">
+                ⚙️ どんな <ruby>問題<rt>もんだい</rt></ruby>に チャレンジする？
+            </h2>
+            
+            <div class="w-full max-w-md space-y-4 bg-emerald-50 p-4 sm:p-5 rounded-2xl border-2 border-emerald-200 shadow-inner">
+                <!-- Operation Selection -->
+                <div>
+                    <span class="block text-xs sm:text-sm font-bold text-emerald-700 mb-2">➕ 計算（けいさん）の しゅるい</span>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="setOp('add')" id="op-add" class="op-select-btn pop-button py-2 px-1 rounded-xl border-2 border-emerald-400 bg-white font-black text-emerald-700 shadow shadow-emerald-200 text-xs sm:text-sm">たす（ ＋ ）</button>
+                        <button onclick="setOp('sub')" id="op-sub" class="op-select-btn pop-button py-2 px-1 rounded-xl border-2 border-emerald-100 bg-emerald-100/50 font-bold text-emerald-600 text-xs sm:text-sm">ひく（ ー ）</button>
+                        <button onclick="setOp('mix')" id="op-mix" class="op-select-btn pop-button py-2 px-1 rounded-xl border-2 border-emerald-100 bg-emerald-100/50 font-bold text-emerald-600 text-xs sm:text-sm">まぜまぜ</button>
+                    </div>
+                </div>
+
+                <!-- Difficulty Selection -->
+                <div>
+                    <span class="block text-xs sm:text-sm font-bold text-emerald-700 mb-2">⚡️ くりあがり・くりさがり</span>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="setDifficulty('easy')" id="diff-easy" class="diff-select-btn pop-button py-2.5 px-2 rounded-xl border-2 border-emerald-400 bg-white font-black text-emerald-700 shadow shadow-emerald-200 text-xs sm:text-sm">
+                            <span class="font-black text-sm">なし</span><br>
+                            <span class="text-[10px] text-emerald-600 font-normal">くりあがり・下がりなし</span>
+                        </button>
+                        <button onclick="setDifficulty('hard')" id="diff-hard" class="diff-select-btn pop-button py-2.5 px-2 rounded-xl border-2 border-emerald-100 bg-emerald-100/50 font-bold text-emerald-600 text-xs sm:text-sm">
+                            <span class="font-black text-sm">あり</span><br>
+                            <span class="text-[10px] text-gray-500 font-normal">くりあがり・下がりあり</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Play Mode Selection -->
+                <div>
+                    <span class="block text-xs sm:text-sm font-bold text-emerald-700 mb-2">🎮 あそびかた</span>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="setPlayMode('practice')" id="mode-practice" class="mode-select-btn pop-button py-2 px-2 rounded-xl border-2 border-emerald-400 bg-white font-bold text-emerald-700 shadow shadow-emerald-200 text-xs sm:text-sm">
+                            <span class="font-black">⏰ れんしゅう</span><br>
+                            <span class="text-[10px] text-gray-500 font-normal">ゆっくり、ヒントつき</span>
+                        </button>
+                        <button onclick="setPlayMode('test')" id="mode-test" class="mode-select-btn pop-button py-2 px-2 rounded-xl border-2 border-emerald-100 bg-emerald-100/50 font-bold text-emerald-600 text-xs sm:text-sm">
+                            <span class="font-black">🏁 タイムアタック</span><br>
+                            <span class="text-[10px] text-gray-500 font-normal">10もんを はやく解こう！</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Start Button -->
+            <button onclick="startGame()" class="pop-button mt-4 w-full max-w-xs py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white font-black text-xl sm:text-2xl shadow-lg border-b-4 border-orange-700 text-center">
+                🚀 スタートする！
+            </button>
+        </div>
+
+        <!-- ================= PLAY GAME SCREEN ================= -->
+        <div id="game-screen" class="hidden flex-1 flex flex-col justify-between py-1 sm:py-2">
+            
+            <!-- Info Header (Progress / Score / Timer) -->
+            <div class="flex justify-between items-center px-3 py-1.5 bg-yellow-50 rounded-xl border border-yellow-200 mb-4 text-xs sm:text-sm font-bold text-slate-700">
+                <div id="progress-container">
+                    もんだい: <span id="current-question-num" class="text-lg sm:text-xl text-orange-600 font-black">1</span> / <span id="total-question-num">10</span>
+                </div>
+                <div id="timer-container" class="hidden text-rose-700 flex items-center gap-1 bg-rose-50 px-2 py-0.5 rounded-lg border border-rose-200">
+                    <i class="far fa-clock"></i> <span id="timer-value" class="text-base font-black">0.0</span> 秒
+                </div>
+                <div>
+                    せいかい: <span id="correct-count" class="text-lg sm:text-xl text-emerald-600 font-black">0</span>
+                </div>
+            </div>
+
+            <!-- Main Interactive Calculation Workspace -->
+            <div class="flex-1 flex flex-col lg:flex-row gap-2 items-stretch justify-around min-h-[220px] max-w-full">
+                
+                <!-- Left: Question Layouts (Normal / Hissan) -->
+                <div class="w-full flex justify-center items-center py-5 bg-slate-50 rounded-2xl border-2 border-slate-200 min-h-[220px] max-w-[500px] relative shadow-inner overflow-hidden">
+                    
+                    <!-- View Normal (よこ書き・暗算バージョン) -->
+                    <div id="view-normal" class="text-3xl sm:text-4xl font-black text-slate-800 tracking-wider flex items-center gap-2 sm:gap-3">
+                        <span id="num1-normal">35</span>
+                        <span id="op-normal" class="text-rose-500 font-extrabold">＋</span>
+                        <span id="num2-normal">24</span>
+                        <span class="text-slate-400">＝</span>
+                        <div class="relative inline-block w-20 sm:w-24 h-12 sm:h-14 bg-white border-4 border-amber-400 rounded-xl shadow flex items-center justify-center focus-within:ring-4 focus-within:ring-amber-300 focus-within:border-amber-500 transition-all">
+                            <input type="tel" id="user-answer-input-normal" 
+                                   class="w-full h-full text-center text-2xl sm:text-3xl font-black text-amber-600 outline-none bg-transparent animate-focus" 
+                                   placeholder="?" 
+                                   maxlength="3" 
+                                   onfocus="setFocusedInput(this.id)"
+                                   oninput="handleDirectInput(this)"
+                                   onkeydown="handleDirectInputKey(event)">
+                        </div>
+                    </div>
+
+                    <!-- View Hissan (たて書き・筆算バージョン) -->
+                    <div id="view-hissan" class="hidden flex flex-col items-center select-none py-1">
+                        <div class="hissan-grid font-mono relative text-slate-800">
+                            
+                            <!-- [Row 1] Helper Memo Boxes (Ten's place purple box / One's place blue box) -->
+                            <!-- Column 2: Tens Strike Toggle button -->
+                            <div class="gr-1 gc-2 flex flex-col items-center justify-end h-full w-full">
+                                <button onclick="toggleTensStrike()" id="tens-strike-btn" class="pop-button text-[9px] font-bold bg-amber-100 hover:bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded border border-amber-300 leading-none" title="なな線を引く">
+                                    ／
+                                </button>
+                            </div>
+                            <!-- Column 3: Tens place carry-over/remaining box (紫色：文字サイズ2倍のtext-2xl！） -->
+                            <div class="gr-1 gc-3 w-full h-full flex items-center justify-center">
+                                <input type="tel" id="tens-carry-input"
+                                       class="w-10 h-10 rounded border border-dashed border-purple-400 bg-purple-50 text-center text-2xl font-black text-purple-600 outline-none focus:border-2 focus:border-purple-500 focus:bg-purple-100 transition-all"
+                                       placeholder=""
+                                       maxlength="1"
+                                       onfocus="setFocusedInput(this.id)"
+                                       oninput="handleHelperInput(this, 'tens')"
+                                       title="くりあがり・のこりの数メモ">
+                            </div>
+                            <!-- Column 4: Ones place borrow/carry helper box (青箱: 10のメモ、タップで10が入る、サイズ2倍) -->
+                            <div class="gr-1 gc-4 w-full h-full flex items-center justify-center">
+                                <input type="tel" id="ones-borrow-input"
+                                       class="w-10 h-10 rounded border border-dashed border-blue-400 bg-blue-50 text-center text-2xl font-black text-blue-600 outline-none focus:border-2 focus:border-blue-500 focus:bg-blue-100 transition-all cursor-pointer"
+                                       placeholder=""
+                                       maxlength="2"
+                                       onfocus="setFocusedInput(this.id)"
+                                       oninput="handleHelperInput(this, 'ones')"
+                                       onclick="toggleOnesBorrowTen(this)"
+                                       readonly
+                                       title="くりさがり・10のメモ（タップで10が入るよ）">
+                            </div>
+
+                            <!-- [Row 2] Number 1 (Tens, Ones, and the Right-side sign input) -->
+                            <div id="num1-hissan-tens" class="gr-2 gc-3 text-center w-full">5</div>
+                            <div id="num1-hissan-ones" class="gr-2 gc-4 text-center w-full">4</div>
+                            <!-- Column 5: Right-side operator input box (緑箱: 符号記号のサイズを2倍に拡大) -->
+                            <div class="gr-2 gc-5 w-full h-full flex items-center justify-center">
+                                <input type="text" id="hissan-sign-input"
+                                       class="w-11 h-9 rounded border-2 border-emerald-300 bg-emerald-50 text-center text-2xl font-black text-emerald-700 outline-none focus:border-2 focus:border-emerald-500 focus:bg-emerald-100 transition-all"
+                                       placeholder="?"
+                                       maxlength="1"
+                                       onfocus="setFocusedInput(this.id)"
+                                       oninput="handleSignInput(this)"
+                                       title="一の位 of 計算記号(＋かー)">
+                            </div>
+                            <!-- Column 6: カギ線専用通路 -->
+                            <div class="gr-2 gc-6 w-full h-full"></div>
+                            <!-- Column 7: Helper Calculation Input Box (赤箱: 補数) -->
+                            <div class="gr-2 gc-7 w-full h-full flex items-center justify-center">
+                                <input type="tel" id="hissan-helper-calc-input"
+                                       class="hidden w-10 h-9 rounded border-2 border-rose-300 bg-rose-50 text-center text-lg font-black text-rose-700 outline-none focus:border-2 focus:border-rose-500 focus:bg-rose-100 transition-all"
+                                       placeholder="?"
+                                       maxlength="1"
+                                       onfocus="setFocusedInput(this.id)"
+                                       oninput="handleHelperCalcInput(this)"
+                                       title="10からひいた（またはひく）数">
+                            </div>
+
+                            <!-- Column 4-7: 透明なカギ線SVGレイヤー -->
+                            <div id="hissan-bracket-line" class="hidden gr-1-3 gc-4-7 w-full h-full pointer-events-none relative z-0">
+                                <svg class="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                    <path d="M 25 15 L 65 15 L 65 82 L 25 82" fill="none" stroke="#f43f5e" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </div>
+                            
+                            <!-- [Row 3] Operator & Number 2 -->
+                            <div id="op-hissan" class="gr-3 gc-2 text-rose-500 font-black text-2xl text-center w-full">ー</div>
+                            <div id="num2-hissan-tens" class="gr-3 gc-3 text-center w-full">2</div>
+                            <div id="num2-hissan-ones" class="gr-3 gc-4 text-center w-full">8</div>
+                            
+                            <!-- [Row 4] Solid underline across all 7 columns -->
+                            <div class="notebook-line gr-4 gc-1-7 my-1"></div>
+                            
+                            <!-- [Row 5] Result Box (黄色の箱: こたえの入力ハコ) -->
+                            <div class="gr-5 gc-3-4 w-full flex justify-center">
+                                <div id="hissan-ans-box-wrapper" class="w-22 h-11 bg-white border-4 border-amber-400 rounded-xl shadow-inner flex items-center justify-center focus-within:ring-4 focus-within:ring-amber-300 focus-within:border-amber-500 transition-all">
+                                    <input type="tel" id="user-answer-input-hissan" 
+                                           class="w-full h-full text-center text-3xl font-black text-amber-600 outline-none bg-transparent" 
+                                           placeholder="?" 
+                                           maxlength="3" 
+                                           onfocus="setFocusedInput(this.id)"
+                                           oninput="handleDirectInput(this)"
+                                           onkeydown="handleDirectInputKey(event)">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 説明文のレイアウト・デザイン調整 -->
+                        <div class="text-lg sm:text-[22px] font-bold text-slate-700 mt-4 max-w-lg mx-auto text-left leading-relaxed">
+                            💡 上の<span class="text-blue-600 font-extrabold">青ハコ</span>をクリックして「<span class="text-blue-600 font-extrabold">10</span>」を入れると、右横に<span class="text-rose-500 font-extrabold">赤いハコ</span>が出現して、そこまで<span class="text-rose-500 font-extrabold">カギ線</span>が符号のすき間を通って伸びるよ！<br>
+                            その先（符号の右横）の<span class="text-rose-600 font-extrabold">赤ハコ</span>に10から引いた答えを書いて、その左に<span class="text-emerald-600 font-extrabold">符号（＋かー）</span>を入れよう！十の位の計算は、左上の<span class="text-purple-600 font-extrabold">紫ハコ</span>に「のこりの数」を書いてから、ひき算をしよう！
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Right Side Column: 切り替えボタン ＋ タイルのヒント -->
+                <div class="flex-1 flex flex-col gap-4 w-full max-w-sm">
+                    
+                    <!-- Layout Mode Switcher -->
+                    <div class="flex justify-center gap-2">
+                        <button onclick="setViewMode('normal')" id="view-normal-btn" class="pop-button px-4 py-1.5 rounded-full font-black text-xs sm:text-sm border-2 border-emerald-400 bg-emerald-500 text-white shadow-sm flex items-center gap-1">
+                            <i class="fas fa-brain"></i>よこ書き（暗算）
+                        </button>
+                        <button onclick="setViewMode('hissan')" id="view-hissan-btn" class="pop-button px-4 py-1.5 rounded-full font-black text-xs sm:text-sm border-2 border-emerald-200 bg-white text-emerald-600 shadow-sm flex items-center gap-1">
+                            <i class="fas fa-bars-staggered rotate-90"></i>ひっさん（筆算）
+                        </button>
+                    </div>
+
+                    <!-- Right: Visual Dot/Tile Assistant (Practice Mode ONLY) -->
+                    <div id="tile-assistant" class="w-full bg-sky-50 p-3.5 sm:p-4 rounded-2xl border-2 border-sky-200 flex flex-col items-center shadow-sm flex-1">
+                        <span class="text-base sm:text-lg font-black text-sky-800 flex items-center gap-1.5 mb-2">
+                            <i class="fas fa-lightbulb text-amber-500 text-lg"></i> タイルのヒント（タップでかぞえられるよ）
+                        </span>
+                        
+                        <div class="flex w-full justify-around gap-2 text-center h-[26rem] overflow-y-auto bg-white p-2.5 rounded-xl border border-sky-100 flex-1 flex-col justify-start">
+                            <!-- Ten's Place Column -->
+                            <div class="flex-1 flex flex-col items-center border-b border-sky-100 pb-3 mb-2 w-full">
+                                <span class="text-xs font-bold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-full mb-2 leading-none shadow-sm">10のまとまり</span>
+                                <!-- 【松プラン横5列グリッド】 tens-grid-5 を使って10のまとまりを横に5個ずつ整列 -->
+                                <div id="tens-tile-container" class="tens-grid-5 w-full py-0.5">
+                                    <!-- Generated Dynamically -->
+                                </div>
+                            </div>
+                            
+                            <!-- One's Place Column -->
+                            <div class="flex-1 flex flex-col items-center w-full mt-1">
+                                <div class="flex flex-col items-center w-full mb-2">
+                                    <span class="text-[10px] sm:text-xs font-bold text-rose-700 bg-rose-100 px-2 py-1 rounded-full leading-none shadow-sm text-center">1のばら（合計）</span>
+                                    <span id="ones-select-counter" class="text-[11px] text-amber-700 font-bold mt-1 hidden">
+                                        あつめた数: <span id="select-count-num" class="text-sm text-amber-600 font-black">0</span> / 10
+                                    </span>
+                                </div>
+
+                                <!-- 【松プラン横5列グリッド】 dot-grid-5 を使って横に5個ずつ整列 -->
+                                <div id="ones-tile-container" class="dot-grid-5 w-full py-0.5">
+                                    <!-- Generated Dynamically -->
+                                </div>
+
+                                <!-- 【松プラン】「10こをまとまりにする🎁」お引越しボタン表示エリア -->
+                                <div id="merge-button-container" class="w-full mt-3 flex justify-center hidden">
+                                    <button onclick="mergeTenOnesToBundle()" class="pop-button gatchanko-active bg-amber-500 hover:bg-amber-600 text-white font-black text-xs py-2 px-4 rounded-full shadow border-b-2 border-amber-700 flex items-center gap-1">
+                                        🎁 10こを がっちゃんこ（両替）
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- Assistant Mascot Dialogue Bubble -->
+            <div id="mascot-bar" class="flex items-center gap-3 bg-amber-50 p-2 sm:p-3 rounded-2xl border border-amber-200 my-4 shadow-sm">
+                <div class="text-3xl sm:text-4xl filter drop-shadow animate-pulse" id="mascot-emoji">🐼</div>
+                <div class="flex-1 text-xs sm:text-sm font-bold text-amber-900 leading-snug" id="mascot-bubble">
+                    ２けたの けいさんに チャレンジしよう！ひっさんも 使えるよ！
+                </div>
+            </div>
+
+            <!-- Submit Button directly positioned -->
+            <div class="w-full max-w-xs mx-auto mt-2">
+                <button onclick="submitAnswer()" class="pop-button w-full py-3 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-black text-lg shadow-md border-b-4 border-emerald-700 flex items-center justify-center gap-2">
+                    <i class="fas fa-check-circle text-xl"></i>
+                    <span>できた！ (こたえあわせ)</span>
+                </button>
+            </div>
+
+        </div>
+
+        <!-- ================= RESULT / SUMMARY SCREEN ================= -->
+        <div id="result-screen" class="hidden flex-1 flex flex-col justify-center items-center py-4 text-center">
+            <h2 class="text-2xl sm:text-3xl font-black text-amber-600 mb-1 animate-pulse">🎉 おつかれさまでした！ 🎉</h2>
+            <p class="text-sm text-slate-600 mb-4 sm:mb-6">さいごまで がんばって といたね！</p>
+
+            <!-- Medal Badge Visualizer -->
+            <div class="relative mb-6">
+                <div id="medal-graphic" class="text-7xl sm:text-8xl drop-shadow filter animate-bounce">🥇</div>
+                <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-yellow-400 text-yellow-950 font-black text-xs px-3 py-1 rounded-full border-2 border-yellow-200 shadow-md whitespace-nowrap" id="medal-banner">
+                    きんメダル
+                </div>
+            </div>
+
+            <!-- Score / Metric Board -->
+            <div class="w-full max-w-sm bg-amber-50 p-4 sm:p-5 rounded-2xl border-2 border-amber-200 space-y-3 mb-6 shadow-md">
+                <div class="flex justify-between items-center text-sm sm:text-base">
+                    <span class="text-amber-800 font-bold">🎯 といた問題:</span>
+                    <span class="font-black text-amber-950" id="result-total">10もん</span>
+                </div>
+                <div class="flex justify-between items-center text-sm sm:text-base">
+                    <span class="text-emerald-800 font-bold">⭕️ せいかいの数:</span>
+                    <span class="font-black text-emerald-600 text-lg sm:text-xl animate-pulse" id="result-correct">10もん</span>
+                </div>
+                <div id="result-time-row" class="flex justify-between items-center text-sm sm:text-base">
+                    <span class="text-rose-800 font-bold">⏱️ かかったじかん:</span>
+                    <span class="font-black text-rose-600 text-lg sm:text-xl" id="result-time">15.4秒</span>
+                </div>
+                <div id="result-highscore-row" class="hidden flex justify-between items-center text-xs sm:text-sm bg-yellow-100 p-2.5 rounded-xl border border-yellow-200">
+                    <span class="text-yellow-800 font-black">👑 じこベスト更新！</span>
+                    <span class="font-black text-yellow-950" id="result-highscore">15.4秒</span>
+                </div>
+            </div>
+
+            <!-- Play Again Trigger -->
+            <div class="w-full max-w-xs">
+                <button onclick="showSettings()" class="pop-button w-full py-3 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-black text-lg shadow-md border-b-4 border-emerald-700">
+                    🔄 もういちど あそぶ
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- JavaScript Programming Interface -->
+    <script>
+        // Configuration parameters
+        let soundEnabled = true;
+        let synth;
+
+        // Game states
+        let currentOp = 'add'; // 'add', 'sub', 'mix'
+        let currentDiff = 'easy'; // 'easy' (くり上がり・下がりなし), 'hard' (くり上がり・下がりあり)
+        let currentPlayMode = 'practice'; // 'practice' (visual tile hints), 'test' (timer based)
+        let currentViewMode = 'normal'; // 初期状態は「よこ書き（暗算）」に
+        let activeInputId = 'user-answer-input-normal'; // フォーカス中の入力枠を追跡
+
+        let currentQuestion = { num1: 35, num2: 24, op: '＋', answer: 59 };
+        let currentQuestionIdx = 0;
+        const totalQuestionsCount = 10;
+        let score = 0;
+        let userAnswer = "";
+        
+        let timerInterval;
+        let startTime;
+        let elapsedSeconds = 0;
+
+        // Custom Hissan interactive helpers state
+        let tensCarryVal = ""; // "", "1-9"
+        let onesBorrowVal = ""; // "", "10"
+        let tensIsStruck = false;
+        let hissanSignVal = ""; // "+", "-", ""
+
+        // User-created extra ten bundles from counting loose ones (両替したまとまりの数)
+        let userCreatedTenBundles = 0;
+        let selectedOneTilesSet = new Set(); // 選択されている「1のばら」おはじきのIDセット
+
+        // 引き算用の「手動タップ・おはじき消し込み（引き算）」用の状態保持（松プラン）
+        let crossedTens = new Set(); // 消去された10の束のインデックス
+        let crossedOnes = new Set(); // 消去されたバラのおはじきのIDセット
+
+        // 【松プラン：たし算用のインデックス管理＆消滅（がっちゃんこ）状態管理】
+        let addedTens = new Set(); // たし算で合体（色変え）された10のまとまりのインデックス
+        let addedOnes = new Set(); // たし算で合体（色変え）された1のばらのおはじきIDセット（インデックス数値が入る）
+        let dismissedOnes = new Set(); // 【新設】がっちゃんこ（両替お引越し）して消滅したおはじきインデックスのセット
+
+        // 繰り下がり時に10のまとまりが「1のばら」へ移動したかどうかの状態変数
+        let isTileBorrowed = false; 
+
+        // Animals / Mascot config & response templates
+        const mascots = ["🐼", "🐨", "🐸", "🦁", "🐰", "🦊", "🐶"];
+        const congratsPhrases = [
+            "すごい！ばっちり大せいかい！",
+            "きみは てんさい だね！そのちょうし！",
+            "よくできたね！かんぺきだよ！",
+            "大正解（だいせいかい）！すばらしい！",
+            "やったね！とってもカッコいいよ！"
+        ];
+        const encouragingPhrases = [
+            "だいじょうぶ！ゆっくり かんがえよう！",
+            "おしい！つぎは きっとできるよ！",
+            "ノートや タイルのヒントを 見てみよう！",
+            "あせらず ひとつずつ 計算（けいさん）しよう！"
+        ];
+
+        // Safe context activation and note synthesis using Tone.js PolySynth
+        function initSound() {
+            if (!synth) {
+                synth = new Tone.PolySynth(Tone.Synth).toDestination();
+                synth.set({
+                    envelope: {
+                        attack: 0.015,
+                        decay: 0.12,
+                        sustain: 0.35,
+                        release: 0.85
+                    }
+                });
+                synth.volume.value = -12; // Moderate polite volume
+            }
+        }
+
+        // Toggle sound status
+        function toggleSound() {
+            initSound();
+            soundEnabled = !soundEnabled;
+            const soundIcon = document.getElementById('sound-icon');
+            const soundBtn = document.getElementById('sound-btn');
+            if (soundEnabled) {
+                soundIcon.className = 'fas fa-volume-up text-lg';
+                soundBtn.className = 'pop-button bg-amber-100 hover:bg-amber-200 text-amber-700 p-2 rounded-full w-10 h-10 flex items-center justify-center border-2 border-amber-300 shadow-sm';
+            } else {
+                soundIcon.className = 'fas fa-volume-mute text-lg';
+                soundBtn.className = 'pop-button bg-slate-100 hover:bg-slate-200 text-slate-500 p-2 rounded-full w-10 h-10 flex items-center justify-center border-2 border-slate-300 shadow-sm';
+            }
+        }
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            initSound();
+            
+            try {
+                if (Tone.context.state !== 'running') {
+                    Tone.start();
+                }
+                const now = Tone.now();
+
+                if (type === 'correct') {
+                    synth.triggerAttackRelease("C5", "16n", now);
+                    synth.triggerAttackRelease("E5", "16n", now + 0.1);
+                    synth.triggerAttackRelease("G5", "16n", now + 0.2);
+                    synth.triggerAttackRelease("C6", "8n", now + 0.3);
+                } else if (type === 'wrong') {
+                    synth.triggerAttackRelease("F3", "8n", now);
+                    synth.triggerAttackRelease("E3", "4n", now + 0.15);
+                } else if (type === 'click') {
+                    synth.triggerAttackRelease("G4", "32n", now);
+                } else if (type === 'complete') {
+                    synth.triggerAttackRelease("C5", "8n", now);
+                    synth.triggerAttackRelease("D5", "8n", now + 0.15);
+                    synth.triggerAttackRelease("E5", "8n", now + 0.3);
+                    synth.triggerAttackRelease("G5", "8n", now + 0.45);
+                    synth.triggerAttackRelease("C6", "2n", now + 0.6);
+                } else if (type === 'magic') {
+                    synth.triggerAttackRelease("E5", "16n", now);
+                    synth.triggerAttackRelease("A5", "16n", now + 0.08);
+                    synth.triggerAttackRelease("C6", "16n", now + 0.16);
+                    synth.triggerAttackRelease("E6", "8n", now + 0.24);
+                }
+            } catch (error) {
+                console.warn("Audio Context init/playback prevented:", error);
+            }
+        }
+
+        // Canvas particle confetti celebration system
+        const canvas = document.getElementById('confetti-canvas');
+        const ctx = canvas.getContext('2d');
+        let confetti = [];
+        let animationFrameId;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        class ConfettiPiece {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * -canvas.height - 20;
+                this.size = Math.random() * 8 + 6;
+                this.color = `hsl(${Math.random() * 360}, 90%, 65%)`;
+                this.speedY = Math.random() * 3 + 2.5;
+                this.speedX = Math.random() * 2 - 1;
+                this.rotation = Math.random() * 360;
+                this.rotationSpeed = Math.random() * 4 - 2;
+            }
+            update() {
+                this.y += this.speedY;
+                this.x += this.speedX;
+                this.rotation += this.rotationSpeed;
+            }
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate((this.rotation * Math.PI) / 180);
+                ctx.fillStyle = this.color;
+                ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+                ctx.restore();
+            }
+        }
+
+        // Configure options triggers
+        function setOp(op) {
+            playSound('click');
+            currentOp = op;
+            document.querySelectorAll('.op-select-btn').forEach(btn => {
+                btn.className = "op-select-btn pop-button py-2 px-1 rounded-xl border-2 border-emerald-100 bg-emerald-100/50 font-bold text-emerald-600 text-xs sm:text-sm";
+            });
+            const activeBtn = document.getElementById(`op-${op}`);
+            activeBtn.className = "op-select-btn pop-button py-2 px-1 rounded-xl border-2 border-emerald-400 bg-white font-black text-emerald-700 shadow shadow-emerald-200 text-xs sm:text-sm";
+        }
+
+        function setDifficulty(diff) {
+            playSound('click');
+            currentDiff = diff;
+            document.querySelectorAll('.diff-select-btn').forEach(btn => {
+                btn.className = "diff-select-btn pop-button py-2.5 px-2 rounded-xl border-2 border-emerald-100 bg-emerald-100/50 font-bold text-emerald-600 text-xs sm:text-sm";
+            });
+            const activeBtn = document.getElementById(`diff-${diff}`);
+            activeBtn.className = "diff-select-btn pop-button py-2.5 px-2 rounded-xl border-2 border-emerald-400 bg-white font-black text-emerald-700 shadow shadow-emerald-200 text-xs sm:text-sm";
+        }
+
+        // Play Mode / View Mode Configuration
+        function setPlayMode(mode) {
+            playSound('click');
+            currentPlayMode = mode;
+            document.querySelectorAll('.mode-select-btn').forEach(btn => {
+                btn.className = "mode-select-btn pop-button py-2 px-2 rounded-xl border-2 border-emerald-100 bg-emerald-100/50 font-bold text-emerald-600 text-xs sm:text-sm";
+            });
+            const activeBtn = document.getElementById(`mode-${mode}`);
+            activeBtn.className = "mode-select-btn pop-button py-2 px-2 rounded-xl border-2 border-emerald-400 bg-white font-black text-emerald-700 shadow shadow-emerald-200 text-xs sm:text-sm";
+        }
+
+        function setViewMode(view) {
+            playSound('click');
+            currentViewMode = view;
+            const normalBtn = document.getElementById('view-normal-btn');
+            const hissanBtn = document.getElementById('view-hissan-btn');
+            const normalView = document.getElementById('view-normal');
+            const hissanView = document.getElementById('view-hissan');
+
+            if (view === 'normal') {
+                normalBtn.className = "pop-button px-4 py-1.5 rounded-full font-black text-xs sm:text-sm border-2 border-emerald-400 bg-emerald-500 text-white shadow-sm flex items-center gap-1";
+                hissanBtn.className = "pop-button px-4 py-1.5 rounded-full font-black text-xs sm:text-sm border-2 border-emerald-200 bg-white text-emerald-600 shadow-sm flex items-center gap-1";
+                normalView.classList.remove('hidden');
+                hissanView.classList.add('hidden');
+            } else {
+                hissanBtn.className = "pop-button px-4 py-1.5 rounded-full font-black text-xs sm:text-sm border-2 border-emerald-400 bg-emerald-500 text-white shadow-sm flex items-center gap-1";
+                normalBtn.className = "pop-button px-4 py-1.5 rounded-full font-black text-xs sm:text-sm border-2 border-emerald-200 bg-white text-emerald-600 shadow-sm flex items-center gap-1";
+                hissanView.classList.remove('hidden');
+                normalView.classList.add('hidden');
+            }
+
+            focusActiveInput();
+        }
+
+        // 点滅アニメーションのターゲット変更に合わせて状態更新
+        function setFocusedInput(id) {
+            const oldTarget = document.getElementById(activeInputId);
+            if (oldTarget) {
+                oldTarget.classList.remove('active-focus-pulse');
+            }
+
+            activeInputId = id;
+
+            const newTarget = document.getElementById(id);
+            if (newTarget) {
+                newTarget.classList.add('active-focus-pulse');
+            }
+        }
+
+        // 数学的に「くり上がり・くり下がり」を100%確実に制御して生成するエンジン
+        function generateQuestion() {
+            let num1, num2, op, answer;
+            let resolvedOp = currentOp;
+            if (currentOp === 'mix') {
+                resolvedOp = Math.random() < 0.5 ? 'add' : 'sub';
+            }
+
+            if (resolvedOp === 'add') {
+                op = '＋';
+                if (currentDiff === 'hard') {
+                    const a = Math.floor(Math.random() * 9) + 1; // 1 ~ 9
+                    const b = Math.floor(Math.random() * (10 - a)) + (10 - a); // 足して必ず10以上
+                    
+                    const A = Math.floor(Math.random() * 7) + 1; // 1 ~ 7
+                    const B = Math.floor(Math.random() * (8 - A)) + 1; // 1 ~ (8-A)
+
+                    num1 = A * 10 + a;
+                    num2 = B * 10 + b;
+                } else {
+                    const a = Math.floor(Math.random() * 10); // 0 ~ 9
+                    const b = Math.floor(Math.random() * (10 - a)); // 0 ~ (9-a)
+                    
+                    const A = Math.floor(Math.random() * 8) + 1; // 1 ~ 8
+                    const B = Math.floor(Math.random() * (9 - A)) + 1; // 1 ~ (9-A)
+
+                    num1 = A * 10 + a;
+                    num2 = B * 10 + b;
+                }
+                answer = num1 + num2;
+            } else {
+                op = 'ー';
+                if (currentDiff === 'hard') {
+                    const a = Math.floor(Math.random() * 9); // 0 ~ 8
+                    const b = Math.floor(Math.random() * (9 - a)) + (a + 1); // 確実に a < b
+                    
+                    const A = Math.floor(Math.random() * 7) + 3; // 3 ~ 9
+                    const B = Math.floor(Math.random() * (A - 2)) + 1; // 1 ~ (A-2)
+
+                    num1 = A * 10 + a;
+                    num2 = B * 10 + b;
+                } else {
+                    const a = Math.floor(Math.random() * 10); // 0 ~ 9
+                    const b = Math.floor(Math.random() * (a + 1)); // 0 ~ a
+                    
+                    const A = Math.floor(Math.random() * 8) + 2; // 2 ~ 9
+                    const B = Math.floor(Math.random() * (A - 1)) + 1; // 1 ~ (A-1)
+
+                    num1 = A * 10 + a;
+                    num2 = B * 10 + b;
+                }
+
+                // 【引き算問題では、最初に大きい方の数を表示する】
+                if (num1 < num2) {
+                    const temp = num1;
+                    num1 = num2;
+                    num2 = temp;
+                }
+                answer = num1 - num2;
+            }
+
+            currentQuestion = { num1, num2, op, answer };
+        }
+
+        // 青四角（10のメモ）のワンクリックトグル入力処理
+        function toggleOnesBorrowTen(inputEl) {
+            playSound('click');
+            if (inputEl.value === "10") {
+                inputEl.value = "";
+                isTileBorrowed = false; // タイルのくり下げ状態も解除
+            } else {
+                inputEl.value = "10";
+                isTileBorrowed = true; // タイルをくり下げ状態にする
+            }
+            handleHelperInput(inputEl, 'ones');
+        }
+
+        // タイルの「ばらにする ✂️」をクリックした際のお引越し関数
+        function borrowTenToOnesDirect() {
+            playSound('magic');
+            isTileBorrowed = true; // お引越しフラグを立てる
+            
+            // 筆算の青箱（ones-borrow-input）に「10」を自動入力！
+            const onesBorrowInput = document.getElementById('ones-borrow-input');
+            if (onesBorrowInput) {
+                onesBorrowInput.value = "10";
+                handleHelperInput(onesBorrowInput, 'ones'); // カギ線表示や自動カーソル遷移をトリガー
+            }
+            
+            updateVisualTiles(); // タイル表示をお引越し後に更新！
+        }
+
+        // Helper memo boxes input handler
+        function handleHelperInput(inputEl, type) {
+            let cleaned = inputEl.value.replace(/[^0-9]/g, '');
+            const max = type === 'tens' ? 1 : 2;
+            if (cleaned.length > max) {
+                cleaned = cleaned.slice(0, max);
+            }
+            inputEl.value = cleaned;
+            
+            if (type === 'tens') {
+                tensCarryVal = cleaned;
+                if (cleaned !== "") {
+                    // 紫箱に入力値が適用された時のスタイル。サイズ2倍（text-2xl）を維持！
+                    inputEl.className = "w-10 h-10 rounded border-2 border-purple-500 bg-purple-100 text-center text-2xl font-black text-purple-600 outline-none transition-all";
+                    
+                    // 【遷移ルール 4】紫箱に入力したら、最後に黄色のハコ（user-answer-input-hissan）に移動！
+                    setTimeout(() => {
+                        const hissanAnsInput = document.getElementById('user-answer-input-hissan');
+                        if (hissanAnsInput) {
+                            hissanAnsInput.focus();
+                            setFocusedInput('user-answer-input-hissan');
+                        }
+                    }, 100);
+                } else {
+                    inputEl.className = "w-10 h-10 rounded border border-dashed border-purple-400 bg-purple-50 text-center text-2xl font-black text-purple-600 outline-none focus:border-2 focus:border-purple-500 focus:bg-purple-100 transition-all";
+                }
+            } else {
+                onesBorrowVal = cleaned;
+                
+                // たし算・ひき算両対応のカギ線表示トリガー
+                const bracketLine = document.getElementById('hissan-bracket-line');
+                const calcInput = document.getElementById('hissan-helper-calc-input');
+
+                if (cleaned === "10") {
+                    isTileBorrowed = true; // 筆算に10が入ったら、タイルのくり下げフラグも自動的にON！
+                    updateVisualTiles(); // タイルをばらけさせる
+
+                    if (bracketLine) bracketLine.classList.remove('hidden');
+                    if (calcInput) {
+                        calcInput.classList.remove('hidden');
+                        calcInput.value = "";
+                        calcInput.className = "w-10 h-9 rounded border-2 border-rose-300 bg-rose-50 text-center text-lg font-black text-rose-700 outline-none focus:border-2 focus:border-rose-500 focus:bg-rose-100 transition-all";
+                    }
+
+                    const num2_ones = currentQuestion.num2 % 10;
+                    const correctDiff = 10 - num2_ones;
+                    document.getElementById('mascot-emoji').innerText = "🐻";
+                    
+                    if (currentQuestion.op === '＋') {
+                        document.getElementById('mascot-bubble').innerText = "上の青いハコに「10」が入ったね！カギ線の先の赤いハコ（符号の右横）に, 10から下の数をひいた「" + correctDiff + "」を入れるよ！そのあと, 緑の符号のハコをタップしてね！";
+                    } else {
+                        document.getElementById('mascot-bubble').innerText = "お見事！10のまとまりが「1のばら」にお引越ししたよ！カギ線の先の赤いハコ（符号の右横）に, 10から下の数をひいた「" + correctDiff + "」を書いて、その左に符号の「＋」をいれよう！";
+                    }
+                    
+                    // 【遷移ルール 1】青箱の入力後は「次に緑箱（hissan-sign-input）」へフォーカス！
+                    setTimeout(() => {
+                        const signInput = document.getElementById('hissan-sign-input');
+                        if(signInput) {
+                            signInput.focus();
+                            setFocusedInput('hissan-sign-input');
+                        }
+                    }, 100);
+
+                    // 青ハコ表示のフォントサイズ2倍（text-2xl）
+                    inputEl.className = "w-10 h-10 rounded border-2 border-blue-500 bg-blue-100 text-center text-2xl font-black text-blue-600 outline-none transition-all";
+                } else {
+                    isTileBorrowed = false; // 10が消えたら、タイルもまとまりに戻す
+                    updateVisualTiles();
+
+                    if (bracketLine) bracketLine.classList.add('hidden');
+                    if (calcInput) {
+                        calcInput.classList.add('hidden');
+                        calcInput.value = "";
+                    }
+                    inputEl.className = "w-10 h-10 rounded border border-dashed border-blue-400 bg-blue-50 text-center text-2xl font-black text-blue-600 outline-none focus:border-2 focus:border-blue-500 focus:bg-blue-100 transition-all cursor-pointer";
+                }
+            }
+        }
+
+        // 補助計算直接入力欄（赤箱）のハンドリング
+        function handleHelperCalcInput(inputEl) {
+            let cleaned = inputEl.value.replace(/[^0-9]/g, '');
+            if (cleaned.length > 1) {
+                cleaned = cleaned.slice(0, 1);
+            }
+            inputEl.value = cleaned;
+
+            if (cleaned !== "") {
+                inputEl.className = "w-10 h-9 rounded border-2 border-rose-500 bg-rose-100 text-center text-lg font-black text-rose-700 outline-none transition-all";
+                
+                // 【遷移ルール 3】赤箱を入力し終えたら、次は自動的に「紫箱（tens-carry-input）」へフォーカスを遷移！
+                setTimeout(() => {
+                    const purpleInput = document.getElementById('tens-carry-input');
+                    if (purpleInput) {
+                        purpleInput.focus();
+                        setFocusedInput('tens-carry-input');
+                    }
+                }, 100);
+            } else {
+                inputEl.className = "w-10 h-9 rounded border-2 border-rose-300 bg-rose-50 text-center text-lg font-black text-rose-700 outline-none focus:border-2 focus:border-rose-500 focus:bg-rose-100 transition-all";
+            }
+        }
+
+        // 符号(＋とー)入力欄（緑箱）のハンドリング
+        function handleSignInput(inputEl) {
+            let val = inputEl.value;
+            val = val.replace(/\+/g, '＋').replace(/-/g, 'ー');
+            if (val !== '＋' && val !== 'ー') {
+                val = '';
+            }
+            inputEl.value = val;
+            hissanSignVal = val;
+
+            if (val !== "") {
+                // 文字の大きさ2倍（text-2xl）を維持
+                inputEl.className = "w-11 h-9 rounded border-2 border-emerald-500 bg-emerald-100 text-center text-2xl font-black text-emerald-700 outline-none transition-all";
+                
+                // 【遷移ルール 2】緑箱（符号）が入力されたら、自動で右隣の「赤箱（hissan-helper-calc-input）」にフォーカスを誘導！
+                setTimeout(() => {
+                    const helperCalc = document.getElementById('hissan-helper-calc-input');
+                    if (helperCalc && !helperCalc.classList.contains('hidden')) {
+                        helperCalc.focus();
+                        setFocusedInput('hissan-helper-calc-input');
+                    } else {
+                        const purpleInput = document.getElementById('tens-carry-input');
+                        if (purpleInput) {
+                            purpleInput.focus();
+                            setFocusedInput('tens-carry-input');
+                        } else {
+                            const hissanAnsInput = document.getElementById('user-answer-input-hissan');
+                            if (hissanAnsInput) {
+                                hissanAnsInput.focus();
+                                setFocusedInput('user-answer-input-hissan');
+                            }
+                        }
+                    }
+                }, 100);
+            } else {
+                inputEl.className = "w-11 h-9 rounded border-2 border-emerald-300 bg-emerald-50 text-center text-2xl font-black text-emerald-700 outline-none focus:border-2 focus:border-emerald-500 focus:bg-emerald-100 transition-all";
+            }
+        }
+
+        function toggleTensStrike() {
+            playSound('click');
+            tensIsStruck = !tensIsStruck;
+            const tensEl = document.getElementById('num1-hissan-tens');
+            const btn = document.getElementById('tens-strike-btn');
+            
+            if (tensIsStruck) {
+                if (tensEl) tensEl.classList.add('strike-through');
+                if (btn) btn.className = "pop-button text-[10px] font-bold bg-amber-400 hover:bg-amber-500 text-amber-950 px-1.5 py-0.5 rounded border-2 border-amber-600 leading-none";
+            } else {
+                if (tensEl) tensEl.classList.remove('strike-through');
+                if (btn) btn.className = "pop-button text-[10px] font-bold bg-amber-100 hover:bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded border border-amber-300 leading-none";
+            }
+        }
+
+        function triggerConfetti() {
+            confetti = [];
+            for (let i = 0; i < 90; i++) {
+                confetti.push(new ConfettiPiece());
+            }
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            animateConfetti();
+        }
+
+        // Confetti effect loop
+        function animateConfetti() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            let active = false;
+            confetti.forEach((piece) => {
+                piece.update();
+                piece.draw();
+                if (piece.y < canvas.height) active = true;
+            });
+            if (active) {
+                animationFrameId = requestAnimationFrame(animateConfetti);
+            } else {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        // 筆算の入力マスやメモ表示を初期状態に戻す関数
+        function resetHissanHelpers() {
+            tensCarryVal = "";
+            onesBorrowVal = "";
+            tensIsStruck = false;
+            hissanSignVal = "";
+            isTileBorrowed = false; // お引越し状態も初期化！
+            
+            const carryInput = document.getElementById('tens-carry-input');
+            if (carryInput) {
+                carryInput.value = "";
+                carryInput.className = "w-10 h-10 rounded border border-dashed border-purple-400 bg-purple-50 text-center text-2xl font-black text-purple-600 outline-none focus:border-2 focus:border-purple-500 focus:bg-purple-100 transition-all";
+                carryInput.classList.remove('active-focus-pulse');
+            }
+
+            const borrowInput = document.getElementById('ones-borrow-input');
+            if (borrowInput) {
+                borrowInput.value = "";
+                borrowInput.className = "w-10 h-10 rounded border border-dashed border-blue-400 bg-blue-50 text-center text-2xl font-black text-blue-600 outline-none focus:border-2 focus:border-blue-500 focus:bg-blue-100 transition-all cursor-pointer";
+                borrowInput.classList.remove('active-focus-pulse');
+            }
+
+            const calcInput = document.getElementById('hissan-helper-calc-input');
+            if (calcInput) {
+                calcInput.value = "";
+                calcInput.classList.add('hidden');
+                calcInput.className = "hidden w-10 h-9 rounded border-2 border-rose-300 bg-rose-50 text-center text-lg font-black text-rose-700 outline-none focus:border-2 focus:border-rose-500 focus:bg-rose-100 transition-all";
+                calcInput.classList.remove('active-focus-pulse');
+            }
+
+            const signInput = document.getElementById('hissan-sign-input');
+            if (signInput) {
+                signInput.value = "";
+                signInput.className = "w-11 h-9 rounded border-2 border-emerald-300 bg-emerald-50 text-center text-2xl font-black text-emerald-700 outline-none focus:border-2 focus:border-emerald-500 focus:bg-emerald-100 transition-all";
+                signInput.classList.remove('active-focus-pulse');
+            }
+
+            const tensEl = document.getElementById('num1-hissan-tens');
+            if (tensEl) tensEl.classList.remove('strike-through');
+            
+            const strikeBtn = document.getElementById('tens-strike-btn');
+            if (strikeBtn) strikeBtn.className = "pop-button text-[9px] font-bold bg-amber-100 hover:bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded border border-amber-300 leading-none";
+
+            const bracketLine = document.getElementById('hissan-bracket-line');
+            if (bracketLine) {
+                bracketLine.classList.add('hidden');
+            }
+        }
+
+        // 10のまとまりタイルを描画
+        // たし算でも「足す数（下段の数）」の分だけクリックして鮮やかに色変化・合体できるように拡張！
+        // 【松プランアップデート】グリッド(grid-cols-5)に対応し、自動伸縮するように w-full max-w-[28px] に。
+        function createTenBundle(parent, color, type, index) {
+            const bundle = document.createElement('div');
+            const op = currentQuestion.op;
+            const num1_tens = Math.floor(currentQuestion.num1 / 10);
+            const num2_tens = Math.floor(currentQuestion.num2 / 10);
+
+            if (op === 'ー') {
+                // 【引き算モード】：クリックで斜線消し込み（色変わり）
+                const isCrossed = crossedTens.has(index);
+                bundle.className = `flex flex-col gap-[2px] p-[2px] rounded border w-full max-w-[28px] cursor-pointer transition-all duration-150 relative ${
+                    isCrossed 
+                    ? 'bg-slate-200 border-slate-400 opacity-25 grayscale strike-through scale-95' 
+                    : 'bg-white border-slate-300 hover:bg-amber-50 shadow-sm'
+                }`;
+                
+                bundle.addEventListener('click', () => {
+                    playSound('click');
+                    if (crossedTens.has(index)) {
+                        crossedTens.delete(index);
+                    } else {
+                        crossedTens.add(index);
+                    }
+                    updateVisualTiles(); // 状態を再反映
+                });
+            } else {
+                // 【たし算モード】：足す数の分（num2_tens）だけ、最初はグレーで、クリックすると「合体して色鮮やかに」変化！
+                const isSecondNum = index >= num1_tens; // 足す数（下段）のタイルかどうか
+                const isAdded = addedTens.has(index);
+
+                if (isSecondNum) {
+                    bundle.className = `flex flex-col gap-[2px] p-[2px] rounded border w-full max-w-[28px] cursor-pointer transition-all duration-150 relative ${
+                        isAdded 
+                        ? 'bg-emerald-100 border-emerald-400 shadow-sm scale-100 animate-pulse' 
+                        : 'bg-slate-100 border-slate-300 opacity-50 hover:bg-slate-200 scale-95'
+                    }`;
+
+                    bundle.addEventListener('click', () => {
+                        playSound('click');
+                        if (addedTens.has(index)) {
+                            addedTens.delete(index);
+                        } else {
+                            addedTens.add(index);
+                        }
+                        updateVisualTiles();
+                    });
+                } else {
+                    // 足される数（上段）は最初から合体済み（クリック不可、いつでも通常色）
+                    bundle.className = `flex flex-col gap-[2px] p-[2px] rounded border border-slate-300 w-full max-w-[28px] relative`;
+                    bundle.style.backgroundColor = color + '20';
+                }
+            }
+
+            // 10個のドットを中に配置
+            for (let i = 0; i < 10; i++) {
+                const dot = document.createElement('div');
+                dot.className = "w-full max-w-[16px] h-1.5 rounded-full mx-auto";
+                
+                if (op === 'ー') {
+                    const isCrossed = crossedTens.has(index);
+                    dot.style.backgroundColor = isCrossed ? '#9ca3af' : color;
+                } else {
+                    const isSecondNum = index >= num1_tens;
+                    const isAdded = addedTens.has(index);
+                    if (isSecondNum) {
+                        dot.style.backgroundColor = isAdded ? color : '#9ca3af'; // 合体したら鮮やかな緑、未合体はグレー
+                    } else {
+                        dot.style.backgroundColor = color; // 上段は常にオレンジ
+                    }
+                }
+                
+                bundle.appendChild(dot);
+            }
+            parent.appendChild(bundle);
+        }
+
+        // 1のばらタイルを描画
+        // 引き算（✕斜線消し込み）および たし算（手動クリック合体）に対応。
+        function createOneTile(parent, color, type, tileId, isSecondNum = false, originalIndex = 0) {
+            const tile = document.createElement('div');
+            tile.dataset.tileId = tileId; // 個別識別用ID
+            
+            const op = currentQuestion.op;
+
+            if (type === 'removed') {
+                tile.className = "w-6 h-6 rounded-full flex items-center justify-center text-sm bg-slate-200 text-slate-500 border border-slate-400 opacity-40 select-none font-bold";
+                tile.innerHTML = "✕";
+            } else if (op === 'ー') {
+                // 【引き算モード】タップで斜線・消し込み（✕印）
+                const isCrossed = crossedOnes.has(tileId);
+                tile.className = `w-6 h-6 rounded-full cursor-pointer shadow-sm transition-all flex items-center justify-center relative select-none ${
+                    isCrossed 
+                    ? 'bg-slate-200 border border-slate-400 opacity-25 scale-90' 
+                    : 'border border-slate-300 hover:scale-110'
+                }`;
+                
+                if (!isCrossed) {
+                    tile.style.backgroundColor = color;
+                }
+                
+                const check = document.createElement('div');
+                check.className = `${isCrossed ? 'block' : 'hidden'} text-xs font-bold text-rose-600`;
+                check.innerHTML = "✕";
+                tile.appendChild(check);
+
+                tile.addEventListener('click', () => {
+                    playSound('click');
+                    if (crossedOnes.has(tileId)) {
+                        crossedOnes.delete(tileId);
+                    } else {
+                        crossedOnes.add(tileId);
+                    }
+                    updateVisualTiles(); // 再描画
+                });
+            } else {
+                // 【たし算モード】足す数（isSecondNum=true）はクリック合体、足される数（上段）は最初から赤。
+                if (isSecondNum) {
+                    const isAdded = addedOnes.has(originalIndex);
+                    tile.className = `w-6 h-6 rounded-full cursor-pointer shadow-sm transition-all hover:scale-110 flex items-center justify-center relative border ${
+                        isAdded 
+                        ? 'border-blue-500 bg-blue-500 scale-100 animate-pulse' 
+                        : 'border-slate-400 bg-slate-200 opacity-50 scale-95'
+                    }`;
+
+                    if (isAdded) {
+                        tile.style.backgroundColor = color; // 合体したら鮮やかな青
+                    }
+
+                    const check = document.createElement('div');
+                    check.className = `${isAdded ? 'block' : 'hidden'} text-[10px] font-bold text-white`;
+                    check.innerHTML = "✓";
+                    tile.appendChild(check);
+
+                    tile.addEventListener('click', () => {
+                        playSound('click');
+                        if (addedOnes.has(originalIndex)) {
+                            addedOnes.delete(originalIndex);
+                        } else {
+                            addedOnes.add(originalIndex);
+                        }
+                        updateVisualTiles();
+                    });
+                } else {
+                    // 足される数（上段）は最初から明るい赤色
+                    tile.className = "w-6 h-6 rounded-full shadow-sm relative border border-slate-300";
+                    tile.style.backgroundColor = color;
+                    
+                    if (type === 'borrowed') {
+                        tile.classList.add('border-2', 'border-dashed', 'border-rose-500');
+                    }
+                }
+            }
+            parent.appendChild(tile);
+        }
+
+        // 【松プラン：たし算の「10こがっちゃんこ（両替）」お引越しボタンのアクション】
+        function mergeTenOnesToBundle() {
+            const num1_ones = currentQuestion.num1 % 10;
+            const num2_ones = currentQuestion.num2 % 10;
+            const totalOnes = num1_ones + num2_ones;
+
+            // 現在アクティブ（合体済み）なおはじきインデックスをリスト化
+            let activeIndices = [];
+            for (let i = 0; i < totalOnes; i++) {
+                if (dismissedOnes.has(i)) continue; // すでにがっちゃんこ済みのものはスルー
+
+                const isSecondNum = i >= num1_ones;
+                if (!isSecondNum || addedOnes.has(i)) {
+                    activeIndices.push(i);
+                }
+            }
+
+            if (activeIndices.length >= 10) {
+                playSound('magic');
+                
+                // お引越しする10個に消滅アニメーションクラスを一瞬当てるための演出
+                const onesContainer = document.getElementById('ones-tile-container');
+                if (onesContainer) {
+                    const tiles = Array.from(onesContainer.children);
+                    // 最初のアクティブな10個に対応するおはじきエレメントにアニメーション適用
+                    let count = 0;
+                    tiles.forEach(tile => {
+                        const tileId = tile.dataset.tileId;
+                        if (tileId) {
+                            // タイルIDに対応するインデックスを取り出して確認
+                            const idx = parseInt(tileId.split('_').pop());
+                            if (activeIndices.slice(0, 10).includes(idx)) {
+                                tile.classList.add('pop-out-animation');
+                            }
+                        }
+                    });
+                }
+
+                setTimeout(() => {
+                    // 1. がっちゃんこ（消滅リスト）に先頭の10個を追加
+                    const toDismiss = activeIndices.slice(0, 10);
+                    toDismiss.forEach(idx => {
+                        dismissedOnes.add(idx);
+                        addedOnes.delete(idx); // 合体フラグからも外す
+                    });
+
+                    // 2. ユーザーが作った10のまとまりを追加
+                    userCreatedTenBundles++;
+
+                    // 3. 全体を描画更新
+                    updateVisualTiles();
+
+                    // 4. マスコットのお祝いセリフ
+                    document.getElementById('mascot-emoji').innerText = "🐰";
+                    document.getElementById('mascot-bubble').innerText = "すごーーい！10こが「10のまとまり」1つにがっちゃんこ（両替）したよ！左に新しいまとまりが届いたよ！";
+                }, 500);
+            }
+        }
+
+        // 「1のばら」選択数を表示するカウンターの更新（たし算での両替・がっちゃんこ用）
+        function updateOnesSelectionCounter() {
+            const counterContainer = document.getElementById('ones-select-counter');
+            const counterNum = document.getElementById('select-count-num');
+            if (!counterContainer || !counterNum) return;
+
+            const op = currentQuestion.op;
+            if (op === '＋' || op === '+') {
+                // たし算の場合
+                const num1_ones = currentQuestion.num1 % 10;
+                const num2_ones = currentQuestion.num2 % 10;
+                const totalOnes = num1_ones + num2_ones;
+                
+                // 現在アクティブな（がっちゃんこ（消滅）しておらず、かつaddedOnesに入っているか、もとの一の位である）数をカウント
+                let activeCount = 0;
+                for (let i = 0; i < totalOnes; i++) {
+                    if (dismissedOnes.has(i)) continue;
+                    const isSecondNum = i >= num1_ones;
+                    if (!isSecondNum || addedOnes.has(i)) {
+                        activeCount++;
+                    }
+                }
+                
+                // がっちゃんこ可能な10個以上、または合体途中のアクティブなおはじきがある場合
+                if (totalOnes >= 10 && activeCount > 0) {
+                    counterContainer.classList.remove('hidden');
+                    counterNum.innerText = activeCount;
+                } else {
+                    counterContainer.classList.add('hidden');
+                }
+            } else {
+                // 引き算の場合は非表示
+                counterContainer.classList.add('hidden');
+            }
+        }
+
+        // 画面上にあるアクティブなおはじきの個数をカウント（がっちゃんこ判定用）
+        function countActiveOnesOnScreen() {
+            const num1 = currentQuestion.num1;
+            const num2 = currentQuestion.num2;
+            const op = currentQuestion.op;
+
+            const n1_ones = num1 % 10;
+            const n2_ones = num2 % 10;
+
+            if (op === '＋' || op === '+') {
+                return n1_ones + n2_ones;
+            } else {
+                const isBorrow = n1_ones < n2_ones;
+                if (isBorrow) {
+                    return (n1_ones + 10) - n2_ones;
+                } else {
+                    return n1_ones - n2_ones;
+                }
+            }
+        }
+
+        // Draw tiles on the hint panel
+        // 【松プラン完全進化版：1のばらを横最大5列、さらに10のまとまりも横最大5列の綺麗なおはじきケース風グリッドに並び替え】
+        function updateVisualTiles() {
+            const tensContainer = document.getElementById('tens-tile-container');
+            const onesContainer = document.getElementById('ones-tile-container');
+            const mergeBtnContainer = document.getElementById('merge-button-container');
+            
+            if (!tensContainer || !onesContainer) return;
+
+            tensContainer.innerHTML = "";
+            onesContainer.innerHTML = "";
+            if (mergeBtnContainer) mergeBtnContainer.classList.add('hidden');
+            
+            const num1 = currentQuestion.num1;
+            const num2 = currentQuestion.num2;
+            const op = currentQuestion.op; 
+
+            const n1_tens = Math.floor(num1 / 10);
+            const n1_ones = num1 % 10;
+            const n2_tens = Math.floor(num2 / 10);
+            const n2_ones = num2 % 10;
+
+            const color1_tens = "#f59e0b"; // Amber 500
+            const color1_ones = "#ef4444"; // Red 500
+            const color2_tens = "#10b981"; // Emerald 500 (たし算用: 緑)
+            const color2_ones = "#3b82f6"; // Blue 500 (たし算用: 青)
+
+            // ==================== 【たし算（＋）モードのタイル表示＆クリック合体】 ====================
+            if (op === '＋' || op === '+') {
+                // 1. 10のまとまりの描画（【松プラン】横最大5個の折り返しグリッド「tens-grid-5」を適用！）
+                tensContainer.className = "tens-grid-5 w-full py-0.5";
+                
+                const totalTens = n1_tens + n2_tens;
+                for (let i = 0; i < totalTens; i++) {
+                    if (i < n1_tens) {
+                        createTenBundle(tensContainer, color1_tens, 'normal', i);
+                    } else {
+                        createTenBundle(tensContainer, color2_tens, 'normal', i);
+                    }
+                }
+                // ユーザーが両替して作った10のまとまり
+                for (let i = 0; i < userCreatedTenBundles; i++) {
+                    createTenBundle(tensContainer, "#eab308", 'normal', 999 + i);
+                }
+
+                // 2. 1のばらの描画（【松プラン】横1段最大5個の美しいグリッド配置 `grid-cols-5` 適用！）
+                const totalOnes = n1_ones + n2_ones;
+                onesContainer.className = "dot-grid-5 w-full"; // 横5列グリッドを適用！
+
+                let currentActiveCountIn10 = 0; // 現在合体してアクティブなおはじき数
+                let hasOnesToRender = false;
+
+                for (let i = 0; i < totalOnes; i++) {
+                    if (dismissedOnes.has(i)) continue; // がっちゃんこ（消滅）したものは描画しない！
+
+                    hasOnesToRender = true;
+                    const tileId = `one_add_tile_${i}`;
+                    const isSecondNum = i >= n1_ones; // num2の分は最初は未合体（グレー）
+                    
+                    if (!isSecondNum) {
+                        createOneTile(onesContainer, color1_ones, 'normal', tileId, false);
+                        currentActiveCountIn10++; // 上段は最初から合体済み
+                    } else {
+                        createOneTile(onesContainer, color2_ones, 'normal', tileId, true, i);
+                        if (addedOnes.has(i)) {
+                            currentActiveCountIn10++;
+                        }
+                    }
+                }
+
+                // おはじきが1つもない場合のプレースホルダー
+                if (!hasOnesToRender && userCreatedTenBundles > 0) {
+                    const emptyTip = document.createElement('div');
+                    emptyTip.className = "col-span-5 text-slate-400 text-xs py-3 font-bold text-center";
+                    emptyTip.innerHTML = "✨ ばらは ぜんぶ両替（くり上がり）したよ！";
+                    onesContainer.appendChild(emptyTip);
+                }
+
+                // 【松プランお引越しボタンの出現トリガー】現在アクティブな丸が10個以上ならがっちゃんこボタンを出現させる！
+                if (currentActiveCountIn10 >= 10 && mergeBtnContainer) {
+                    mergeBtnContainer.classList.remove('hidden');
+                }
+
+                // --- マスコット応援実況テキストのアップデート ---
+                let bubbleText = `たし算（たす）の計算だね！<br>`;
+                bubbleText += `👈 下段の「たす数（10のまとまり **${n2_tens}個**、1のばら **${n2_ones}個**）」をタップして合体（がったい）させよう！<br>`;
+                
+                // 現在の進行おはじきを計算
+                let totalAddedOnesCount = addedOnes.size;
+                let totalAddedTensCount = addedTens.size;
+
+                bubbleText += `<span class="bg-yellow-100 px-1.5 py-0.5 rounded font-black text-slate-800">（いま合体させた数：10のまとまり **${totalAddedTensCount}個** ／ 1のばら **${totalAddedOnesCount}個**）</span><br>`;
+                
+                if (currentActiveCountIn10 >= 10) {
+                    bubbleText += `✨ **合体した丸が10こ集まったよ！** 1のばらの下にある **「🎁 がっちゃんこ（両替）」** ボタンを押して、10のまとまりに変身させよう！`;
+                    document.getElementById('mascot-emoji').innerText = "🐰";
+                } else if (totalAddedTensCount === n2_tens && totalAddedOnesCount === n2_ones && dismissedOnes.size > 0) {
+                    bubbleText += `🎉 **お見事！両替も合体もかんぺき！** ぜんぶの数を合わせて数えると、それが答えになるよ！`;
+                    document.getElementById('mascot-emoji').innerText = "🐼";
+                } else {
+                    bubbleText += `ぜんぶ合体できたら、合わせた数を数えてみよう！`;
+                    document.getElementById('mascot-emoji').innerText = "🦊";
+                }
+                
+                document.getElementById('mascot-bubble').innerHTML = bubbleText;
+            } 
+            // ==================== 【引き算（ー）モードのタイル表示＆クリック消し込み】 ====================
+            else {
+                const isBorrow = n1_ones < n2_ones;
+
+                // --- 10のまとまりの描画（【松プラン】こちらも横最大5個の折り返しグリッド「tens-grid-5」を適用！） ---
+                tensContainer.className = "tens-grid-5 w-full py-0.5";
+
+                if (isBorrow) {
+                    // 【くり下がりありの引き算】
+                    const activeTensCount = n1_tens - 1;
+                    for (let i = 0; i < activeTensCount; i++) {
+                        createTenBundle(tensContainer, color1_tens, 'normal', i);
+                    }
+
+                    // くり下げ対象となる「最後の1つの10のまとまり」の表示
+                    if (!isTileBorrowed) {
+                        const borrowTargetBundle = document.createElement('div');
+                        borrowTargetBundle.className = "flex flex-col gap-[2px] p-[2px] rounded border-2 border-purple-400 bg-purple-50 hover:bg-purple-100 w-full max-w-[28px] cursor-pointer transition-all relative tile-borrow-active";
+                        
+                        const badge = document.createElement('div');
+                        badge.className = "absolute -right-3 top-1/2 -translate-y-1/2 bg-purple-500 text-white text-[8px] font-black px-1.5 py-1 rounded shadow whitespace-nowrap z-10 scale-95 border border-purple-300 animate-bounce";
+                        badge.innerHTML = "ばらにする✂️";
+                        borrowTargetBundle.appendChild(badge);
+
+                        for (let j = 0; j < 10; j++) {
+                            const dot = document.createElement('div');
+                            dot.className = "w-full max-w-[16px] h-1.5 rounded-full mx-auto bg-amber-500";
+                            borrowTargetBundle.appendChild(dot);
+                        }
+
+                        borrowTargetBundle.addEventListener('click', () => {
+                            borrowTenToOnesDirect();
+                        });
+
+                        tensContainer.appendChild(borrowTargetBundle);
+                    } else {
+                        const borrowedBundle = document.createElement('div');
+                        borrowedBundle.className = "flex flex-col gap-[2px] p-[2px] rounded border-2 border-dashed border-purple-300 bg-purple-50/10 w-full max-w-[28px] opacity-40 relative";
+                        
+                        const badge = document.createElement('div');
+                        badge.className = "absolute -right-2 top-1/2 -translate-y-1/2 bg-slate-400 text-white text-[8px] font-bold px-1 py-0.5 rounded-full whitespace-nowrap z-10 scale-75";
+                        badge.innerHTML = "お引越ししたよ";
+                        borrowedBundle.appendChild(badge);
+
+                        for (let j = 0; j < 10; j++) {
+                            const dot = document.createElement('div');
+                            dot.className = "w-full max-w-[16px] h-1.5 rounded-full mx-auto bg-purple-200";
+                            borrowedBundle.appendChild(dot);
+                        }
+                        tensContainer.appendChild(borrowedBundle);
+                    }
+                } else {
+                    for (let i = 0; i < n1_tens; i++) {
+                        createTenBundle(tensContainer, color1_tens, 'normal', i);
+                    }
+                }
+
+                // --- 1のばら（合計）の描画（【松プラン】横1段最大5個のグリッドを各グループに美しく適用！） ---
+                if (isBorrow) {
+                    onesContainer.className = "flex flex-col gap-3 justify-center w-full content-start py-0.5";
+
+                    // 1. もともとの「1のばら」グループ（横5個折り返し）
+                    const originalGroup = document.createElement('div');
+                    originalGroup.className = "flex flex-col items-center w-full p-1.5 rounded-xl border border-rose-100 bg-rose-50/30 mb-1";
+                    const origLabel = document.createElement('span');
+                    origLabel.className = "text-[9px] font-bold text-rose-500 mb-1";
+                    origLabel.innerText = "もとの ばら";
+                    originalGroup.appendChild(origLabel);
+                    
+                    const origDotsWrapper = document.createElement('div');
+                    origDotsWrapper.className = "dot-grid-5 w-full"; // 横5列グリッドを適用！
+                    for (let i = 0; i < n1_ones; i++) {
+                        const tileId = `one_sub_base_${i}`;
+                        createOneTile(origDotsWrapper, color1_ones, 'normal', tileId);
+                    }
+                    originalGroup.appendChild(origDotsWrapper);
+                    onesContainer.appendChild(originalGroup);
+
+                    // 2. お引越ししてきた「くり下げた 10」グループの描画（横5個折り返しなので5×2の2段になります！）
+                    if (isTileBorrowed) {
+                        const borrowedGroup = document.createElement('div');
+                        borrowedGroup.className = "flex flex-col items-center w-full p-2 rounded-xl border-2 border-dashed border-blue-400 bg-blue-50/40 mt-1";
+                        const borrowedLabel = document.createElement('span');
+                        borrowedLabel.className = "text-[10px] font-black text-blue-600 mb-1 animate-pulse";
+                        borrowedLabel.innerHTML = "✨ くり下げた 10（5こずつ ２だん）";
+                        borrowedGroup.appendChild(borrowedLabel);
+
+                        const borrowedDotsWrapper = document.createElement('div');
+                        borrowedDotsWrapper.className = "dot-grid-5 w-full"; // 横5列グリッド適用。10個なのでちょうど2段になります！
+                        for (let i = 0; i < 10; i++) {
+                            const tileId = `one_sub_borrow_${i}`;
+                            createOneTile(borrowedDotsWrapper, color2_ones, 'normal', tileId); 
+                        }
+                        borrowedGroup.appendChild(borrowedDotsWrapper);
+                        onesContainer.appendChild(borrowedGroup);
+                    } else {
+                        const borrowedGroupPlaceHolder = document.createElement('div');
+                        borrowedGroupPlaceHolder.className = "w-full p-3 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50/50 mt-1 flex flex-col items-center justify-center text-slate-400 text-xs text-center";
+                        borrowedGroupPlaceHolder.innerHTML = `
+                            <i class="fas fa-arrow-down-long animate-bounce text-purple-400 text-base mb-1"></i>
+                            <span class="font-bold">「ばらにする」を押すと<br>ここに10個 of 丸（5こ×2だん）が届よ！</span>
+                        `;
+                        onesContainer.appendChild(borrowedGroupPlaceHolder);
+                    }
+                } else {
+                    // くり下がりなし：もとのバラをそのまま横5列グリッドで表示！
+                    onesContainer.className = "dot-grid-5 w-full";
+                    for (let i = 0; i < n1_ones; i++) {
+                        const tileId = `one_sub_normal_${i}`;
+                        createOneTile(onesContainer, color1_ones, 'normal', tileId);
+                    }
+                }
+
+                // --- マスコットメッセージのリアルタイム消し込み実況アップデート ---
+                let bubbleText = "";
+                if (isBorrow && !isTileBorrowed) {
+                    bubbleText = `一の位の <span class="text-rose-600 font-extrabold text-sm">${n1_ones}</span> から <span class="text-rose-600 font-extrabold text-sm">${n2_ones}</span> はひけないね！<br>`;
+                    bubbleText += `👈 左側のタイルのヒントで **「ばらにする✂️」** と書かれた10のまとまりをクリックして、1のばらに移動しよう！`;
+                    document.getElementById('mascot-emoji').innerText = "🤔";
+                } else {
+                    bubbleText = `引き算だね！ひく数（十の位: <span class="text-emerald-600 font-extrabold text-sm">${n2_tens}</span>、一の位: <span class="text-rose-600 font-extrabold text-sm">${n2_ones}</span>）だよ！<br>`;
+                    bubbleText += `👈 タイルをクリックして、**10のまとまりを ${n2_tens}個**、**1のばらを ${n2_ones}個** 消してみよう！<br>`;
+                    bubbleText += `<span class="bg-yellow-100 px-1.5 py-0.5 rounded font-black text-slate-800">（いま消した数：10のまとまり **${crossedTens.size}個** ／ 1のばら **${crossedOnes.size}個**）</span><br>`;
+                    
+                    if (crossedTens.size === n2_tens && crossedOnes.size === n2_ones) {
+                        bubbleText += `🎉 **すごい！ピッタリ消し終わったよ！** 残っている数を数えてみよう！`;
+                        document.getElementById('mascot-emoji').innerText = "🐼";
+                    } else {
+                        bubbleText += `消されずに **残っている数** を数えると、それが答えになるよ！`;
+                        document.getElementById('mascot-emoji').innerText = "💡";
+                    }
+                }
+                
+                document.getElementById('mascot-bubble').innerHTML = bubbleText;
+            }
+
+            updateOnesSelectionCounter();
+        }
+
+        // Transition settings and launch game parameters
+        function startGame() {
+            playSound('click');
+            document.getElementById('settings-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            
+            currentQuestionIdx = 1;
+            score = 0;
+            userAnswer = "";
+            
+            const tileAssistant = document.getElementById('tile-assistant');
+            if (currentPlayMode === 'practice') {
+                if (tileAssistant) tileAssistant.classList.remove('hidden');
+            } else {
+                if (tileAssistant) tileAssistant.classList.add('hidden');
+            }
+
+            const timerContainer = document.getElementById('timer-container');
+            if (currentPlayMode === 'test') {
+                if (timerContainer) timerContainer.classList.remove('hidden');
+                elapsedSeconds = 0;
+                document.getElementById('timer-value').innerText = "0.0";
+                startTime = Date.now();
+                timerInterval = setInterval(updateTimer, 100);
+            } else {
+                if (timerContainer) timerContainer.classList.add('hidden');
+                if (timerInterval) clearInterval(timerInterval);
+            }
+
+            document.getElementById('total-question-num').innerText = totalQuestionsCount;
+            document.getElementById('correct-count').innerText = score;
+            
+            loadNewQuestion();
+            setViewMode(currentViewMode); // 設定状態のよこ書き・たて書きビューを適用
+        }
+
+        function updateTimer() {
+            const now = Date.now();
+            elapsedSeconds = ((now - startTime) / 1000).toFixed(1);
+            document.getElementById('timer-value').innerText = elapsedSeconds;
+        }
+
+        function loadNewQuestion() {
+            userAnswer = "";
+            updateAnswerDisplay();
+            generateQuestion();
+            resetHissanHelpers();
+
+            // 両替・消し込み・合体状態の初期化
+            userCreatedTenBundles = 0;
+            selectedOneTilesSet.clear();
+            crossedTens.clear();
+            crossedOnes.clear();
+            
+            addedTens.clear();  // たし算用合体クリア！
+            addedOnes.clear();  // たし算用合体クリア！
+            dismissedOnes.clear(); // 新設：がっちゃんこ消滅状態クリア！
+
+            isTileBorrowed = false; // お引越しフラグを完全にリセット！
+
+            document.getElementById('num1-normal').innerText = currentQuestion.num1;
+            document.getElementById('num2-normal').innerText = currentQuestion.num2;
+            document.getElementById('op-normal').innerText = currentQuestion.op;
+
+            const num1_tens = Math.floor(currentQuestion.num1 / 10);
+            const num1_ones = currentQuestion.num1 % 10;
+            const num2_tens = Math.floor(currentQuestion.num2 / 10);
+            const num2_ones = currentQuestion.num2 % 10;
+
+            document.getElementById('num1-hissan-tens').innerText = num1_tens;
+            document.getElementById('num1-hissan-ones').innerText = num1_ones;
+            document.getElementById('num2-hissan-tens').innerText = num2_tens;
+            document.getElementById('num2-hissan-ones').innerText = num2_ones;
+            document.getElementById('op-hissan').innerText = currentQuestion.op;
+
+            document.getElementById('current-question-num').innerText = currentQuestionIdx;
+
+            if (currentPlayMode === 'practice') {
+                updateVisualTiles();
+                
+                const activeOnes = countActiveOnesOnScreen();
+                if (activeOnes >= 11 && currentQuestion.op === '＋') {
+                    document.getElementById('mascot-emoji').innerText = "🐰";
+                    document.getElementById('mascot-bubble').innerText = "バラのおはじきが11こ以上あるね！1のばらをタップして合体させていくと、10こ貯まった時点で「がっちゃんこ（両替）」できるよ！";
+                }
+            }
+
+            focusActiveInput();
+        }
+
+        function changeMascot(isCorrect) {
+            const index = Math.floor(Math.random() * mascots.length);
+            document.getElementById('mascot-emoji').innerText = mascots[index];
+            const phraseArray = isCorrect ? congratsPhrases : encouragingPhrases;
+            const phrase = phraseArray[Math.floor(Math.random() * phraseArray.length)];
+            document.getElementById('mascot-bubble').innerText = phrase;
+        }
+
+        // フォーカスの初期位置設定
+        function focusActiveInput() {
+            setTimeout(() => {
+                // 筆算のときは最初に「10を入力する箱（青箱：ones-borrow-input）」に自動でカーソルを設定！
+                const targetId = currentViewMode === 'normal' 
+                    ? 'user-answer-input-normal' 
+                    : 'ones-borrow-input';
+                const targetInput = document.getElementById(targetId);
+                if (targetInput) {
+                    targetInput.focus();
+                    setFocusedInput(targetId);
+                }
+            }, 80);
+        }
+
+        // Handle Direct User Input inside specific boxes
+        function handleDirectInput(inputEl) {
+            let cleaned = inputEl.value.replace(/[^0-9]/g, '');
+            if (cleaned.length > 3) {
+                cleaned = cleaned.slice(0, 3);
+            }
+            userAnswer = cleaned;
+            updateAnswerDisplay();
+        }
+
+        // Process Direct Keyboard Submit Events
+        function handleDirectInputKey(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                submitAnswer();
+            }
+        }
+
+        function updateAnswerDisplay() {
+            const normalInput = document.getElementById('user-answer-input-normal');
+            const hissanInput = document.getElementById('user-answer-input-hissan');
+            
+            if (normalInput) normalInput.value = userAnswer;
+            if (hissanInput) hissanInput.value = userAnswer;
+            
+            if (userAnswer === "") {
+                if (normalInput) {
+                    normalInput.classList.add('text-slate-300');
+                    normalInput.classList.remove('text-amber-600');
+                }
+                if (hissanInput) {
+                    hissanInput.classList.add('text-slate-300');
+                    hissanInput.classList.remove('text-amber-600');
+                }
+            } else {
+                if (normalInput) {
+                    normalInput.classList.remove('text-slate-300');
+                    normalInput.classList.add('text-amber-600');
+                }
+                if (hissanInput) {
+                    hissanInput.classList.remove('text-slate-300');
+                    hissanInput.classList.add('text-amber-600');
+                }
+            }
+        }
+
+        function submitAnswer() {
+            if (userAnswer === "") return;
+
+            const parsed = parseInt(userAnswer);
+            let isCorrect = parsed === currentQuestion.answer;
+
+            // --- 教育的符号・補助メモ入力チェック ---
+            if (currentViewMode === 'hissan') {
+                const signInput = document.getElementById('hissan-sign-input');
+                const helperCalc = document.getElementById('hissan-helper-calc-input');
+                const signInputVal = signInput ? signInput.value : "";
+                const helperCalcVal = helperCalc ? helperCalc.value : "";
+                
+                // 補助計算ハコが出現している条件
+                const isBorrowSub = currentQuestion.op === 'ー' && (currentQuestion.num1 % 10) < (currentQuestion.num2 % 10);
+                const isCarryAdd = currentQuestion.op === '＋' && (currentQuestion.num1 % 10) + (currentQuestion.num2 % 10) >= 10;
+
+                // メモ欄が活性化している場合の正誤確認
+                if (isBorrowSub || isCarryAdd) {
+                    const num2_ones = currentQuestion.num2 % 10;
+                    const correctDiff = 10 - num2_ones;
+
+                    if (helperCalcVal === "") {
+                        playSound('wrong');
+                        document.getElementById('mascot-emoji').innerText = "🦊";
+                        document.getElementById('mascot-bubble').innerText = "符号の右側の赤いハコに, 10から下の数をひいた答え（" + correctDiff + "）を入力してね！";
+                        flashWorkspace('fail');
+                        return;
+                    }
+
+                    if (parseInt(helperCalcVal) !== correctDiff) {
+                        playSound('wrong');
+                        document.getElementById('mascot-emoji').innerText = "🦊";
+                        document.getElementById('mascot-bubble').innerText = "おしい！赤いハコに入るのは, 10から下の数（" + num2_ones + "）をひいた「" + correctDiff + "」だよ。もういちど計算してみよう！";
+                        flashWorkspace('fail');
+                        return;
+                    }
+                }
+
+                // ひき算で繰り下がりがある場合：符号は「＋」
+                if (isBorrowSub && signInputVal !== '＋') {
+                    playSound('wrong');
+                    document.getElementById('mascot-emoji').innerText = "🦊";
+                    document.getElementById('mascot-bubble').innerText = "おしい！一の位は「10からひいた数」と「上の数」を『たし算（＋）』するよ。符号に「＋」をいれてみよう！";
+                    flashWorkspace('fail');
+                    return;
+                }
+
+                // たし算で繰り上がりがある場合：符号は「ー」
+                if (isCarryAdd && signInputVal !== 'ー') {
+                    playSound('wrong');
+                    document.getElementById('mascot-emoji').innerText = "🦊";
+                    document.getElementById('mascot-bubble').innerText = "おしい！たし算のくり上がりでは, 上の数から「10からひいた数（補数）」を『ひき算（ー）』するよ。符号に「ー」をいれてみよう！";
+                    flashWorkspace('fail');
+                    return;
+                }
+            }
+
+            if (isCorrect) {
+                playSound('correct');
+                score++;
+                document.getElementById('correct-count').innerText = score;
+                changeMascot(true);
+                triggerConfetti();
+                flashWorkspace('success');
+            } else {
+                playSound('wrong');
+                changeMascot(false);
+                flashWorkspace('fail');
+            }
+
+            setTimeout(() => {
+                if (currentQuestionIdx < totalQuestionsCount) {
+                    currentQuestionIdx++;
+                    loadNewQuestion();
+                } else {
+                    endGame();
+                }
+            }, 2000);
+        }
+
+        function flashWorkspace(type) {
+            const normalInput = document.getElementById('user-answer-input-normal');
+            const hissanInput = document.getElementById('user-answer-input-hissan');
+            const normalBox = normalInput ? normalInput.parentNode : null;
+            const hissanBox = hissanInput ? hissanInput.parentNode : null;
+            const flashColor = type === 'success' ? 'border-emerald-500' : 'border-rose-500';
+
+            [normalBox, hissanBox].forEach(box => {
+                if (box) {
+                    box.classList.remove('border-amber-400');
+                    box.classList.add(flashColor, 'border-4');
+                    setTimeout(() => {
+                        box.classList.remove(flashColor, 'border-4');
+                        box.classList.add('border-amber-400');
+                    }, 1800);
+                }
+            });
+        }
+
+        // Support standard PC physical keyboard inputs
+        document.addEventListener('keydown', (e) => {
+            const gameScreen = document.getElementById('game-screen');
+            if (gameScreen && gameScreen.classList.contains('hidden')) return;
+
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                submitAnswer();
+                return;
+            }
+        });
+
+        // Terminate play-cycles and compute awards
+        function endGame() {
+            if (timerInterval) clearInterval(timerInterval);
+            playSound('complete');
+
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.remove('hidden');
+
+            document.getElementById('result-total').innerText = `${totalQuestionsCount}もん`;
+            document.getElementById('result-correct').innerText = `${score}もん`;
+
+            const medalBanner = document.getElementById('medal-banner');
+            const medalGraphic = document.getElementById('medal-graphic');
+
+            if (score === 10) {
+                medalBanner.innerText = "🏆 パーフェクト金メダル！";
+                medalGraphic.innerText = "🥇";
+            } else if (score >= 7) {
+                medalBanner.innerText = "🥈 銀メダル！よくがんばった！";
+                medalGraphic.innerText = "🥈";
+            } else {
+                medalBanner.innerText = "🥉 銅メダル！つぎもチャレンジ！";
+                medalGraphic.innerText = "🥉";
+            }
+
+            if (currentPlayMode === 'test') {
+                document.getElementById('result-time-row').classList.remove('hidden');
+                document.getElementById('result-time').innerText = `${elapsedSeconds} 秒`;
+
+                const storageKey = `highscore_2digit_${currentOp}_${currentDiff}`;
+                const savedHighScore = localStorage.getItem(storageKey);
+
+                if (!savedHighScore || parseFloat(elapsedSeconds) < parseFloat(savedHighScore)) {
+                    localStorage.setItem(storageKey, elapsedSeconds);
+                    document.getElementById('result-highscore-row').classList.remove('hidden');
+                    document.getElementById('result-highscore').innerText = `${elapsedSeconds} 秒（新しいきろく！）`;
+                } else {
+                    document.getElementById('result-highscore-row').classList.remove('hidden');
+                    document.getElementById('result-highscore').innerText = `ベスト記録: ${savedHighScore} 秒`;
+                }
+            } else {
+                document.getElementById('result-time-row').classList.add('hidden');
+                document.getElementById('result-highscore-row').classList.add('hidden');
+            }
+        }
+
+        function showSettings() {
+            if (timerInterval) clearInterval(timerInterval);
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.add('hidden');
+            document.getElementById('settings-screen').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
